@@ -21,7 +21,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6 sm:px-10">
+      <div className="mx-auto flex h-18 w-full max-w-6xl items-center justify-between px-6 sm:px-10">
         <Link href="/" className="flex items-center" aria-label="IT Heritages home">
           <Image
             src="/it-heritages-logo-header.png"
@@ -29,7 +29,7 @@ export function Header() {
             width={1133}
             height={386}
             priority
-            className="h-9 w-auto"
+            className="h-10 w-auto"
           />
         </Link>
 

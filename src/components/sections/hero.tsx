@@ -20,7 +20,7 @@ export function Hero() {
       <div className="pointer-events-none absolute inset-0">
         <ParticleNetwork reducedMotion={reducedMotion} />
       </div>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background" />
 
       <div className="relative z-10 mx-auto w-full max-w-6xl px-6 sm:px-10">
         <p className="mb-6 text-sm font-medium tracking-[0.2em] text-primary uppercase">

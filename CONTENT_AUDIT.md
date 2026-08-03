@@ -63,7 +63,15 @@ The site organizes services into two views — **Services** (delivery model) and
 
 ---
 
-## FAKE / TEMPLATE CONTENT — DO NOT CARRY INTO REBUILD
+## Client logos — CORRECTION (real, not filler)
+
+Initial scrape rendered the "Our Featured Clients" trust bar as empty broken image tags, so it was impossible to tell from text extraction alone whether these were real clients or template placeholders. Confirmed via screenshot: **these are real, named clients** — TCS, GIZ, Graana.com, Ghulam Farooq Group, RIZ, and a crest-style logo (likely a government/institutional client, name TBD). This is a genuine trust asset and should carry into the rebuild's trust bar section — real named clients are far stronger proof than the fake testimonial text flagged below.
+
+**Action:** waiting on the full client list + logo files from the client before building this section. Do not fabricate additional client names or logos in the meantime — leave as an ImagePlaceholder-style entry ("Client logo — [Name]") per confirmed client until assets are provided.
+
+---
+
+
 
 This is the important part. These appear verbatim, repeatedly, across multiple pages:
 
