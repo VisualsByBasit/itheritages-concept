@@ -63,13 +63,24 @@ The site organizes services into two views — **Services** (delivery model) and
 
 ---
 
-## Client logos — CORRECTION (real, not filler)
+## Client logos — CORRECTION (real, not filler) + FULL LIST CONFIRMED
 
-Initial scrape rendered the "Our Featured Clients" trust bar as empty broken image tags, so it was impossible to tell from text extraction alone whether these were real clients or template placeholders. Confirmed via screenshot: **these are real, named clients** — TCS, GIZ, Graana.com, Ghulam Farooq Group, RIZ, and a crest-style logo (likely a government/institutional client, name TBD). This is a genuine trust asset and should carry into the rebuild's trust bar section — real named clients are far stronger proof than the fake testimonial text flagged below.
+Initial scrape rendered the "Our Featured Clients" trust bar as empty broken image tags, so it was impossible to tell from text extraction alone whether these were real clients or template placeholders. Confirmed via screenshots: **these are real, named clients**, presented as an auto-scrolling marquee (two rows, each continuously scrolling) on the live site.
 
-**Action:** waiting on the full client list + logo files from the client before building this section. Do not fabricate additional client names or logos in the meantime — leave as an ImagePlaceholder-style entry ("Client logo — [Name]") per confirmed client until assets are provided.
+**Full confirmed list (12 clients, two rows of 6):**
+
+Row 1: Nishat Power Limited · RIZ · TCS · GIZ · Graana.com · Ghulam Farooq Group
+Row 2: [government/institutional crest, name TBD] · [logistics/shipping company, name TBD] · [institutional crest #2, name TBD] · Haidri Beverages (Pvt. Ltd.) · [circular oil & gas company logo, name TBD] · Serena Hotels
+
+Three logos need name confirmation from the client (the two crest-style marks and the circular one) — visually institutional/government/oil-and-gas in style but not clearly legible from the source screenshots.
+
+This is a genuinely strong trust asset — a real mix of power/energy, logistics, government, hospitality (Serena Hotels is a major Pakistani hotel chain), beverage, and real estate (Graana.com) clients. Far stronger proof than the fake testimonial text flagged below, and worth leading with in the rebuild's trust bar rather than burying it.
+
+**Action:** Individual logo image files have been cropped from the screenshots as a reference starting point (low-res, screenshot-quality — not final production assets). Get proper high-resolution logo files (SVG or PNG, transparent background) from the client for all 12 before final launch. Until then, the cropped reference versions are usable for the working build so the marquee can be built and reviewed in context.
 
 ---
+
+
 
 
 

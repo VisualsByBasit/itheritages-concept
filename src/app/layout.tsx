@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+import { ScrollProgress } from "@/components/motion/scroll-progress";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 
@@ -37,6 +38,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${bricolageGrotesque.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <ScrollProgress />
         <Header />
         {children}
         <Footer />

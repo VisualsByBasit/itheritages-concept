@@ -99,3 +99,706 @@
     @apply font-sans;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Hero backdrop
+   Meteor field (left) and perspective grid (right). Everything here is driven
+   by CSS keyframes rather than a JS loop, so the hero costs no main-thread
+   time while the rest of the page animates. Only `transform` and `opacity`
+   are animated, which keeps all of it on the compositor.
+   --------------------------------------------------------------------------- */
+
+/* -- meteors --------------------------------------------------------------- */
+
+.hero-meteor-field {
+  /* Travel distance is capped by width as well as height so meteors still
+     land inside the frame on narrow viewports instead of exiting stage left. */
+  --meteor-span: min(78vh, 52vw);
+}
+
+.hero-meteor {
+  position: absolute;
+  top: var(--meteor-top);
+  left: var(--meteor-left);
+  --meteor-distance: calc(var(--meteor-span) * var(--meteor-scale));
+  /* The head of the streak leads the element origin by its own length. */
+  --meteor-reach: calc(var(--meteor-distance) + var(--meteor-length));
+  --meteor-end-x: calc(var(--meteor-reach) * -0.7071);
+  --meteor-end-y: calc(var(--meteor-reach) * 0.7071);
+}
+
+.hero-meteor__streak {
+  position: absolute;
+  width: var(--meteor-length);
+  height: 2px;
+  border-radius: 999px;
+  transform-origin: 0 50%;
+  opacity: 0;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    color-mix(in srgb, var(--meteor-color) 45%, transparent) 55%,
+    var(--meteor-color) 100%
+  );
+  animation: hero-meteor-streak var(--meteor-duration) linear
+    var(--meteor-delay) infinite;
+}
+
+/* Sits exactly where the streak's head ends up, so the burst reads as impact. */
+.hero-meteor__impact {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(var(--meteor-end-x), var(--meteor-end-y));
+}
+
+.hero-meteor__flash {
+  position: absolute;
+  height: 42px;
+  width: 42px;
+  border-radius: 999px;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--meteor-color) 55%, transparent) 0%,
+    transparent 70%
+  );
+  animation: hero-meteor-flash var(--meteor-duration) ease-out
+    var(--meteor-delay) infinite;
+}
+
+.hero-meteor__particle {
+  position: absolute;
+  height: 2.5px;
+  width: 2.5px;
+  border-radius: 999px;
+  opacity: 0;
+  background: var(--meteor-color);
+  animation: hero-meteor-particle var(--meteor-duration) ease-out
+    var(--meteor-delay) infinite;
+}
+
+@keyframes hero-meteor-streak {
+  0% {
+    opacity: 0;
+    transform: rotate(135deg) translateX(0);
+  }
+  4% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 0;
+    transform: rotate(135deg) translateX(var(--meteor-distance));
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(135deg) translateX(var(--meteor-distance));
+  }
+}
+
+@keyframes hero-meteor-flash {
+  0%,
+  28% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+  31% {
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  42% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.2);
+  }
+}
+
+@keyframes hero-meteor-particle {
+  0%,
+  28% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  31% {
+    opacity: 1;
+    transform: translate(calc(var(--px) * 0.22), calc(var(--py) * 0.22)) scale(1);
+  }
+  46% {
+    opacity: 0;
+    transform: translate(var(--px), var(--py)) scale(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--px), var(--py)) scale(0.2);
+  }
+}
+
+/* -- perspective grid ------------------------------------------------------ */
+
+.hero-grid-light {
+  /* Long, per-light cycle: steady, then a flicker/spark, then relight. */
+  animation: hero-grid-flicker var(--flicker-duration) linear
+    var(--flicker-delay) infinite;
+}
+
+.hero-grid-light__glow,
+.hero-grid-light__core {
+  transform-box: fill-box;
+  transform-origin: center;
+  /* Multiplies with the flicker envelope on the parent group. */
+  animation: hero-grid-pulse var(--pulse-duration) ease-in-out
+    var(--pulse-delay) infinite;
+}
+
+.hero-grid-light__spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: hero-grid-spark var(--flicker-duration) ease-out
+    var(--flicker-delay) infinite;
+}
+
+@keyframes hero-grid-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes hero-grid-flicker {
+  0%,
+  62% {
+    opacity: 1;
+  }
+  63% {
+    opacity: 0.12;
+  }
+  64.5% {
+    opacity: 0.9;
+  }
+  66% {
+    opacity: 0.08;
+  }
+  67.5% {
+    opacity: 0.7;
+  }
+  69% {
+    opacity: 0.04;
+  }
+  73.5% {
+    opacity: 0.04;
+  }
+  76% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes hero-grid-spark {
+  0%,
+  66% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  69% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  75% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Client logo marquee
+   Two rows travelling in opposite directions. The track holds two identical
+   copies of the row and shifts by exactly -50%, so the loop is seamless with
+   no JS and no measurement.
+   --------------------------------------------------------------------------- */
+
+.marquee {
+  overflow: hidden;
+  /* Logos dissolve at both edges instead of being hard-clipped. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 7%,
+    #000 93%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 7%,
+    #000 93%,
+    transparent 100%
+  );
+}
+
+.marquee__track {
+  display: flex;
+  width: max-content;
+  animation: marquee-to-left var(--marquee-duration, 46s) linear infinite;
+}
+
+/* Row 1 travels left-to-right, the opposite of the live site's single direction. */
+.marquee__track--to-right {
+  animation-name: marquee-to-right;
+}
+
+.marquee:hover .marquee__track,
+.marquee:focus-within .marquee__track {
+  animation-play-state: paused;
+}
+
+@keyframes marquee-to-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-to-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Section polish
+   Scroll-driven reveals via CSS only. Guarded by @supports so browsers without
+   scroll-linked timelines simply render the content — never a blank section.
+   --------------------------------------------------------------------------- */
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 26%;
+    }
+  }
+}
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Print/PDF never scrolls, so the timeline would never advance and unscrolled
+   sections would export blank. */
+@media print {
+  .reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Decorative ornaments
+   Background flourishes only — dot grids, sketch lines, gradient stripes and
+   drifting dots. Everything here is aria-hidden, pointer-events-none and sits
+   well below content contrast, so it reads as texture on close inspection
+   rather than as UI.
+   --------------------------------------------------------------------------- */
+
+.ornament-dotgrid {
+  background-image: radial-gradient(
+    currentColor 1px,
+    transparent 1px
+  );
+  background-size: var(--dot-gap, 18px) var(--dot-gap, 18px);
+  /* Fades the field out so it never ends on a hard edge. */
+  -webkit-mask-image: radial-gradient(
+    ellipse at var(--dot-origin, 0% 0%),
+    #000 0%,
+    transparent 72%
+  );
+  mask-image: radial-gradient(
+    ellipse at var(--dot-origin, 0% 0%),
+    #000 0%,
+    transparent 72%
+  );
+}
+
+.ornament-dot {
+  position: absolute;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: var(--dot-opacity, 0.45);
+  animation: ornament-drift var(--dot-duration, 11s) ease-in-out
+    var(--dot-delay, 0s) infinite;
+}
+
+@keyframes ornament-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: var(--dot-opacity, 0.45);
+  }
+  50% {
+    transform: translate3d(var(--dx, 5px), var(--dy, -8px), 0);
+    opacity: calc(var(--dot-opacity, 0.45) * 1.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ornament-dot {
+    animation: none;
+  }
+}
+
+/* A short brand rule leading each section eyebrow. */
+.section-eyebrow::before {
+  content: "";
+  display: inline-block;
+  width: 1.75rem;
+  height: 2px;
+  margin-right: 0.75rem;
+  vertical-align: middle;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary),
+    color-mix(in srgb, var(--success) 75%, transparent)
+  );
+}
+
+/* ---------------------------------------------------------------------------
+   Service module motifs
+   One bespoke micro-animation per service (PROJECT_BRIEF.md §4 — "no shared
+   generic icon set"). Each is static at rest and only animates while its card
+   is hovered or keyboard-focused, so ten on screen cost nothing until used.
+   --------------------------------------------------------------------------- */
+
+.service-visual {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  color: var(--service-accent);
+}
+
+.svc-stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.svc-fill {
+  fill: currentColor;
+}
+
+.svc-structure {
+  fill: none;
+  stroke: #c4c4ce;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.svc-structure-soft {
+  fill: none;
+  stroke: #d8d8e0;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+/* Resting states — every motif reads as a composed diagram before any hover. */
+.svc-infra__led,
+.svc-net__node {
+  opacity: 0.55;
+}
+
+/* An unfinished frame: dashed border, caret waiting for content that the
+   audit confirms does not exist yet. */
+.svc-ai__frame {
+  stroke-dasharray: 5 4;
+  opacity: 0.65;
+}
+
+.svc-ai__caret {
+  opacity: 0.75;
+}
+
+.svc-cloud__block,
+.svc-cyber__packet {
+  opacity: 0.7;
+}
+
+.svc-av__wave {
+  opacity: 0.5;
+}
+
+.svc-uc__pulse {
+  opacity: 0;
+}
+
+.svc-consulting__step {
+  opacity: 0.45;
+}
+
+.svc-managed__trace {
+  stroke-dasharray: 120;
+  stroke-dashoffset: 0;
+}
+
+.svc-net__links {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  /* Composed at rest — hover re-draws the links from the hub outward. */
+  stroke-dasharray: 44;
+  stroke-dashoffset: 0;
+  opacity: 0.4;
+}
+
+.svc-workspace__pane {
+  transform: translate(calc(var(--dx) * 1px), calc(var(--dy) * 1px));
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--i) * 60ms);
+}
+
+.service-card:hover .svc-workspace__pane,
+.service-card:focus-within .svc-workspace__pane {
+  transform: translate(0, 0);
+}
+
+.service-card:hover .svc-infra__led,
+.service-card:focus-within .svc-infra__led {
+  animation: svc-blink 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 120ms);
+}
+
+.service-card:hover .svc-cloud__block,
+.service-card:focus-within .svc-cloud__block {
+  animation: svc-lift 1.8s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 220ms);
+}
+
+.service-card:hover .svc-cyber__packet,
+.service-card:focus-within .svc-cyber__packet {
+  animation: svc-deflect 1.9s ease-in infinite;
+  animation-delay: calc(var(--i) * 320ms);
+}
+
+.service-card:hover .svc-cyber__shield,
+.service-card:focus-within .svc-cyber__shield {
+  animation: svc-shield 1.9s ease-out infinite;
+}
+
+.service-card:hover .svc-uc__pulse,
+.service-card:focus-within .svc-uc__pulse {
+  opacity: 1;
+}
+
+.service-card:hover .svc-av__wave,
+.service-card:focus-within .svc-av__wave {
+  animation: svc-radiate 1.8s ease-out infinite;
+  animation-delay: calc(var(--i) * 260ms);
+}
+
+/* A caret waiting on content, not a capability animating. */
+.service-card:hover .svc-ai__caret,
+.service-card:focus-within .svc-ai__caret {
+  animation: svc-blink 1.2s steps(1, end) infinite;
+}
+
+.service-card:hover .svc-managed__trace,
+.service-card:focus-within .svc-managed__trace {
+  animation: svc-sweep 2.2s linear infinite;
+}
+
+.service-card:hover .svc-consulting__step,
+.service-card:focus-within .svc-consulting__step {
+  animation: svc-step 2.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 300ms);
+}
+
+.service-card:hover .svc-net__links line,
+.service-card:focus-within .svc-net__links line {
+  animation: svc-draw 2s ease-out infinite;
+  animation-delay: calc(var(--i) * 160ms);
+}
+
+.service-card:hover .svc-net__node,
+.service-card:focus-within .svc-net__node {
+  animation: svc-pop 2s ease-out infinite;
+  animation-delay: calc(var(--i) * 160ms);
+}
+
+@keyframes svc-blink {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes svc-lift {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+
+@keyframes svc-deflect {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  20% {
+    opacity: 0.9;
+  }
+  70% {
+    opacity: 0.9;
+    transform: translateX(15px);
+  }
+  /* Turned away at the shield rather than passing through it. */
+  100% {
+    opacity: 0;
+    transform: translateX(9px) translateY(-7px);
+  }
+}
+
+@keyframes svc-shield {
+  0%,
+  60%,
+  100% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes svc-radiate {
+  0% {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  30% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(5px);
+  }
+}
+
+@keyframes svc-sweep {
+  0% {
+    stroke-dashoffset: 120;
+  }
+  100% {
+    stroke-dashoffset: -120;
+  }
+}
+
+@keyframes svc-step {
+  0%,
+  70%,
+  100% {
+    opacity: 0.35;
+  }
+  20% {
+    opacity: 1;
+  }
+}
+
+@keyframes svc-draw {
+  0% {
+    stroke-dashoffset: 44;
+  }
+  45%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes svc-pop {
+  0% {
+    opacity: 0.3;
+  }
+  50%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Logos stand still and stay readable rather than scrolling past. */
+  .marquee__track {
+    animation: none;
+    /* Without the loop the second pass is redundant; keep the row centred. */
+    justify-content: center;
+  }
+
+  /* Motifs hold their composed resting state; the cards still expand, just
+     without the looping motion. */
+  .service-visual *,
+  .svc-workspace__pane {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+  .svc-net__links,
+  .svc-managed__trace {
+    stroke-dashoffset: 0;
+  }
+
+  /* Meteors resolve to their 0% frame (invisible); the grid stays lit and
+     static, so the hero still has a composed backdrop rather than a blank. */
+  .hero-meteor__streak,
+  .hero-meteor__flash,
+  .hero-meteor__particle,
+  .hero-grid-light,
+  .hero-grid-light__glow,
+  .hero-grid-light__core,
+  .hero-grid-light__spark {
+    animation: none;
+  }
+  .hero-meteor-field {
+    display: none;
+  }
+}

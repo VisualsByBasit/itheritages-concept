@@ -1,0 +1,586 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Bloom, EffectComposer } from "@react-three/postprocessing";
+import * as THREE from "three";
+
+/* -------------------------------------------------------------------------- */
+/*                                   tuning                                    */
+/* -------------------------------------------------------------------------- */
+
+/** Slab the nodes live in. z is asymmetric: more room behind than in front. */
+const FIELD = { x: 11.5, y: 6.4, zNear: 2.5, zFar: -8 };
+
+const CAMERA_Z = 9;
+
+/** Node count is resolved per-device between these bounds. */
+const NODE_MIN = 90;
+const NODE_MAX = 240;
+
+const HUB_RATIO = 0.07;
+const LINK_DISTANCE = 2.5;
+const HUB_LINK_DISTANCE = 4.2;
+const MAX_LINKS = 3;
+const MAX_HUB_LINKS = 9;
+const MAX_EDGES = 900;
+
+/** Radius (world units) around the cursor ray where nodes react. */
+const CURSOR_RADIUS = 2.8;
+const CURSOR_PUSH = 0.9;
+const CURSOR_BRIGHTEN = 1.9;
+
+const NEAR_SIZE = 0.075;
+const FAR_SIZE = 0.026;
+const NEAR_BRIGHTNESS = 1.25;
+const FAR_BRIGHTNESS = 0.32;
+
+const PALETTE = {
+  primary: new THREE.Color("#079dfb"),
+  success: new THREE.Color("#86c60c"),
+  violet: new THREE.Color("#5333aa"),
+};
+
+/* -------------------------------------------------------------------------- */
+/*                              network generation                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Node count scales with viewport area, then gets clamped by a rough device
+ * capability read. Keeps a 4K desktop from asking a phone for the same load.
+ */
+function resolveNodeCount() {
+  if (typeof window === "undefined") return NODE_MAX;
+
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const cores = nav.hardwareConcurrency ?? 4;
+  const memory = nav.deviceMemory ?? 4;
+
+  const byArea = Math.round((window.innerWidth * window.innerHeight) / 7800);
+  const ceiling = cores <= 4 || memory <= 4 ? 150 : NODE_MAX;
+
+  return Math.max(NODE_MIN, Math.min(byArea, ceiling, NODE_MAX));
+}
+
+type Network = {
+  count: number;
+  /** Undisplaced xyz, the rest position everything animates around. */
+  base: Float32Array;
+  /** 0 = far plane, 1 = near plane. Drives size, brightness and parallax. */
+  depth: Float32Array;
+  radius: Float32Array;
+  color: Float32Array;
+  phase: Float32Array;
+  isHub: Uint8Array;
+  /** Flat [a, b] node index pairs. */
+  edges: Uint32Array;
+  edgeSeed: Float32Array;
+  edgeCount: number;
+};
+
+function createNetwork(count: number): Network {
+  const base = new Float32Array(count * 3);
+  const depth = new Float32Array(count);
+  const radius = new Float32Array(count);
+  const color = new Float32Array(count * 3);
+  const phase = new Float32Array(count);
+  const isHub = new Uint8Array(count);
+
+  const zSpan = FIELD.zNear - FIELD.zFar;
+  const scratch = new THREE.Color();
+
+  for (let i = 0; i < count; i++) {
+    // Bias z toward the far plane so the field reads as receding rather than
+    // as an evenly filled box.
+    const t = Math.pow(Math.random(), 1.6);
+
+    base[i * 3] = (Math.random() * 2 - 1) * FIELD.x;
+    base[i * 3 + 1] = (Math.random() * 2 - 1) * FIELD.y;
+    base[i * 3 + 2] = FIELD.zFar + zSpan * t;
+
+    depth[i] = t;
+    phase[i] = Math.random() * Math.PI * 2;
+
+    const hub = Math.random() < HUB_RATIO;
+    isHub[i] = hub ? 1 : 0;
+
+    radius[i] = THREE.MathUtils.lerp(FAR_SIZE, NEAR_SIZE, t) * (hub ? 2.3 : 1);
+
+    // Hubs take the violet accent; everything else is blue, occasionally
+    // pulled toward the green.
+    if (hub) {
+      scratch.copy(PALETTE.violet).lerp(PALETTE.primary, Math.random() * 0.5);
+    } else {
+      scratch
+        .copy(PALETTE.primary)
+        .lerp(PALETTE.success, Math.random() < 0.25 ? Math.random() : 0);
+    }
+
+    const brightness = THREE.MathUtils.lerp(FAR_BRIGHTNESS, NEAR_BRIGHTNESS, t);
+    scratch.multiplyScalar(brightness * (hub ? 1.45 : 1));
+
+    color[i * 3] = scratch.r;
+    color[i * 3 + 1] = scratch.g;
+    color[i * 3 + 2] = scratch.b;
+  }
+
+  const edges = linkNodes(base, isHub, count);
+  const edgeCount = edges.length / 2;
+
+  const edgeSeed = new Float32Array(edgeCount);
+  for (let e = 0; e < edgeCount; e++) edgeSeed[e] = Math.random();
+
+  return { count, base, depth, radius, color, phase, isHub, edges, edgeSeed, edgeCount };
+}
+
+/**
+ * Links nodes through a uniform spatial hash instead of an O(n^2) sweep, and
+ * caps links per node so density stays flat as the count scales. Hubs are
+ * linked first so they win the nearby slots and actually read as hubs.
+ */
+function linkNodes(base: Float32Array, isHub: Uint8Array, count: number) {
+  const cell = HUB_LINK_DISTANCE;
+  const grid = new Map<string, number[]>();
+  const key = (x: number, y: number, z: number) =>
+    `${Math.floor(x / cell)},${Math.floor(y / cell)},${Math.floor(z / cell)}`;
+
+  for (let i = 0; i < count; i++) {
+    const k = key(base[i * 3], base[i * 3 + 1], base[i * 3 + 2]);
+    const bucket = grid.get(k);
+    if (bucket) bucket.push(i);
+    else grid.set(k, [i]);
+  }
+
+  const linkCount = new Uint16Array(count);
+  const seen = new Set<number>();
+  const out: number[] = [];
+
+  const limitFor = (i: number) => (isHub[i] ? MAX_HUB_LINKS : MAX_LINKS);
+
+  const connect = (order: number[]) => {
+    for (const i of order) {
+      if (out.length / 2 >= MAX_EDGES) return;
+      if (linkCount[i] >= limitFor(i)) continue;
+
+      const reach = isHub[i] ? HUB_LINK_DISTANCE : LINK_DISTANCE;
+      const ax = base[i * 3];
+      const ay = base[i * 3 + 1];
+      const az = base[i * 3 + 2];
+
+      const cx = Math.floor(ax / cell);
+      const cy = Math.floor(ay / cell);
+      const cz = Math.floor(az / cell);
+
+      const candidates: { index: number; distance: number }[] = [];
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oy = -1; oy <= 1; oy++) {
+          for (let oz = -1; oz <= 1; oz++) {
+            const bucket = grid.get(`${cx + ox},${cy + oy},${cz + oz}`);
+            if (!bucket) continue;
+
+            for (const j of bucket) {
+              if (j === i) continue;
+              const dx = ax - base[j * 3];
+              const dy = ay - base[j * 3 + 1];
+              const dz = az - base[j * 3 + 2];
+              const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+              if (distance < reach) candidates.push({ index: j, distance });
+            }
+          }
+        }
+      }
+
+      candidates.sort((a, b) => a.distance - b.distance);
+
+      for (const { index: j } of candidates) {
+        if (linkCount[i] >= limitFor(i)) break;
+        if (out.length / 2 >= MAX_EDGES) break;
+        // Slack on the far end so hubs can still reach a saturated neighbour.
+        if (linkCount[j] >= limitFor(j) + 2) continue;
+
+        const pair = i < j ? i * count + j : j * count + i;
+        if (seen.has(pair)) continue;
+
+        seen.add(pair);
+        out.push(i, j);
+        linkCount[i]++;
+        linkCount[j]++;
+      }
+    }
+  };
+
+  const all = Array.from({ length: count }, (_, i) => i);
+  connect(all.filter((i) => isHub[i]));
+  connect(all.filter((i) => !isHub[i]));
+
+  return Uint32Array.from(out);
+}
+
+/** Static per-vertex buffers for the edge line segments (2 vertices per edge). */
+function createEdgeBuffers(network: Network) {
+  const { edges, edgeSeed, edgeCount, base, color, depth } = network;
+  const vertices = edgeCount * 2;
+
+  const positions = new Float32Array(vertices * 3);
+  const progress = new Float32Array(vertices);
+  const seed = new Float32Array(vertices);
+  const influence = new Float32Array(vertices);
+  const colors = new Float32Array(vertices * 3);
+
+  for (let e = 0; e < edgeCount; e++) {
+    for (let end = 0; end < 2; end++) {
+      const node = edges[e * 2 + end];
+      const v = e * 2 + end;
+
+      positions[v * 3] = base[node * 3];
+      positions[v * 3 + 1] = base[node * 3 + 1];
+      positions[v * 3 + 2] = base[node * 3 + 2];
+
+      // 0 at one end, 1 at the other: interpolates into the pulse position.
+      progress[v] = end;
+      seed[v] = edgeSeed[e];
+
+      // Lines sit well below the nodes, and fade with depth like they do.
+      const fade = 0.18 + depth[node] * 0.32;
+      colors[v * 3] = color[node * 3] * fade;
+      colors[v * 3 + 1] = color[node * 3 + 1] * fade;
+      colors[v * 3 + 2] = color[node * 3 + 2] * fade;
+    }
+  }
+
+  return { positions, progress, seed, influence, colors, vertices };
+}
+
+/** Reusable math objects, so the per-frame loop allocates nothing. */
+function createScratch(count: number) {
+  return {
+    // Own time source: THREE.Clock (what `state.clock` uses) is deprecated.
+    timer: new THREE.Timer(),
+    matrix: new THREE.Matrix4(),
+    position: new THREE.Vector3(),
+    quaternion: new THREE.Quaternion(),
+    scale: new THREE.Vector3(),
+    color: new THREE.Color(),
+    raycaster: new THREE.Raycaster(),
+    ndc: new THREE.Vector2(),
+    toNode: new THREE.Vector3(),
+    closest: new THREE.Vector3(),
+    offset: new THREE.Vector3(),
+    /** Per-frame displaced positions, handed on to the edge buffers. */
+    rendered: new Float32Array(count * 3),
+    influence: new Float32Array(count),
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                edge shaders                                 */
+/* -------------------------------------------------------------------------- */
+
+const EDGE_VERTEX = /* glsl */ `
+  attribute float aProgress;
+  attribute float aSeed;
+  attribute float aInfluence;
+  attribute vec3 aColor;
+
+  varying float vProgress;
+  varying float vSeed;
+  varying float vInfluence;
+  varying vec3 vColor;
+
+  void main() {
+    vProgress = aProgress;
+    vSeed = aSeed;
+    vInfluence = aInfluence;
+    vColor = aColor;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+/**
+ * Every edge runs its own pulse cycle seeded off aSeed. The pulse only travels
+ * during the first `uDuty` of a cycle, and only on cycles that clear the
+ * per-edge gate, so lines fire intermittently rather than all at once.
+ */
+const EDGE_FRAGMENT = /* glsl */ `
+  uniform float uTime;
+  uniform float uOpacity;
+  uniform float uDuty;
+  uniform float uWidth;
+  uniform float uChance;
+  uniform vec3 uPulseColor;
+
+  varying float vProgress;
+  varying float vSeed;
+  varying float vInfluence;
+  varying vec3 vColor;
+
+  void main() {
+    float cycle = uTime * (0.16 + vSeed * 0.2) + vSeed * 7.0;
+    float gate = step(fract(vSeed * 13.37 + floor(cycle) * 0.618), uChance);
+
+    float phase = fract(cycle);
+    float head = phase / uDuty;
+    float alive = step(phase, uDuty) * gate;
+
+    float d = vProgress - head;
+    float pulse = alive * exp(-(d * d) / (uWidth * uWidth));
+
+    vec3 color = vColor + uPulseColor * pulse * 2.4;
+    float alpha = uOpacity * (0.55 + vInfluence * 1.6) + pulse * 0.7;
+
+    gl_FragColor = vec4(color, clamp(alpha, 0.0, 1.0));
+  }
+`;
+
+/* -------------------------------------------------------------------------- */
+/*                                   network                                   */
+/* -------------------------------------------------------------------------- */
+
+function NetworkField({ reducedMotion }: { reducedMotion: boolean }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const linesRef = useRef<THREE.LineSegments>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+
+  // Generated once, then read-only. Lazy state initialiser keeps the random
+  // generation out of the render path on re-renders.
+  const [network] = useState(() => createNetwork(resolveNodeCount()));
+  const [edgeBuffers] = useState(() => createEdgeBuffers(network));
+  const [uniforms] = useState(() => ({
+    uTime: { value: 0 },
+    uOpacity: { value: 0.5 },
+    uDuty: { value: 0.42 },
+    uWidth: { value: 0.09 },
+    uChance: { value: 0.35 },
+    uPulseColor: { value: new THREE.Color("#5ac8ff") },
+  }));
+
+  // Mutable per-frame state, only ever touched inside useFrame.
+  const scratchRef = useRef<ReturnType<typeof createScratch> | null>(null);
+
+  // Smoothed pointer in NDC. `strength` fades the interaction in on the first
+  // pointer move so nothing twitches on load.
+  const pointerRef = useRef({ x: 0, y: 0, targetX: 0, targetY: 0, strength: 0 });
+
+  useEffect(() => {
+    if (reducedMotion) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const pointer = pointerRef.current;
+      pointer.targetX = (event.clientX / window.innerWidth) * 2 - 1;
+      pointer.targetY = -(event.clientY / window.innerHeight) * 2 + 1;
+      pointer.strength = 1;
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    return () => window.removeEventListener("pointermove", handlePointerMove);
+  }, [reducedMotion]);
+
+  useFrame((state) => {
+    const mesh = meshRef.current;
+    const group = groupRef.current;
+    const lines = linesRef.current;
+    const material = materialRef.current;
+    if (!mesh || !group || !lines || !material) return;
+
+    scratchRef.current ??= createScratch(network.count);
+    const {
+      timer,
+      matrix,
+      position,
+      quaternion,
+      scale,
+      color,
+      raycaster,
+      ndc,
+      toNode,
+      closest,
+      offset,
+      rendered,
+      influence,
+    } = scratchRef.current;
+
+    const pointer = pointerRef.current;
+    timer.update();
+    // Guard against tab-restore delta spikes throwing the easing off.
+    const step = Math.min(timer.getDelta(), 1 / 30);
+    const time = reducedMotion ? 0 : timer.getElapsed();
+
+    if (reducedMotion) {
+      group.rotation.set(0, 0, 0);
+      state.camera.position.set(0, 0, CAMERA_Z);
+      state.camera.lookAt(0, 0, 0);
+    } else {
+      pointer.x += (pointer.targetX - pointer.x) * Math.min(1, step * 3);
+      pointer.y += (pointer.targetY - pointer.y) * Math.min(1, step * 3);
+
+      group.rotation.y += step * 0.025;
+      group.rotation.x +=
+        (pointer.y * 0.08 - group.rotation.x) * Math.min(1, step * 1.5);
+
+      // Continuous drift on all three axes, plus a slow roll applied after
+      // lookAt so it survives the orientation reset.
+      state.camera.position.set(
+        Math.sin(time * 0.08) * 0.9 + pointer.x * 0.4,
+        Math.cos(time * 0.065) * 0.5 + pointer.y * 0.28,
+        CAMERA_Z + Math.sin(time * 0.045) * 1.7
+      );
+      state.camera.lookAt(0, 0, 0);
+      state.camera.rotation.z = Math.sin(time * 0.031) * 0.045;
+    }
+
+    material.uniforms.uTime.value = time;
+
+    // Cursor ray in world space. Measuring distance to the ray rather than to a
+    // plane makes "near the cursor on screen" behave correctly at every depth.
+    ndc.set(pointer.x, pointer.y);
+    raycaster.setFromCamera(ndc, state.camera);
+    const ray = raycaster.ray;
+    const cursorStrength = reducedMotion ? 0 : pointer.strength;
+
+    quaternion.identity();
+
+    for (let i = 0; i < network.count; i++) {
+      position.set(
+        network.base[i * 3],
+        network.base[i * 3 + 1],
+        network.base[i * 3 + 2]
+      );
+
+      let hit = 0;
+      if (cursorStrength > 0) {
+        toNode.subVectors(position, ray.origin);
+        const along = toNode.dot(ray.direction);
+        if (along > 0) {
+          closest.copy(ray.direction).multiplyScalar(along).add(ray.origin);
+          offset.subVectors(position, closest);
+          const distance = offset.length();
+          if (distance < CURSOR_RADIUS) {
+            hit = (1 - distance / CURSOR_RADIUS) ** 2 * cursorStrength;
+            if (distance > 1e-4) {
+              position.addScaledVector(
+                offset.divideScalar(distance),
+                hit * CURSOR_PUSH
+              );
+            }
+          }
+        }
+      }
+
+      // Slow independent breathing so the field never looks frozen.
+      const breathe = reducedMotion
+        ? 1
+        : 1 + Math.sin(time * 0.7 + network.phase[i]) * 0.12;
+
+      scale.setScalar(network.radius[i] * breathe * (1 + hit * 0.85));
+      matrix.compose(position, quaternion, scale);
+      mesh.setMatrixAt(i, matrix);
+
+      color.setRGB(
+        network.color[i * 3],
+        network.color[i * 3 + 1],
+        network.color[i * 3 + 2]
+      );
+      if (hit > 0) color.multiplyScalar(1 + hit * CURSOR_BRIGHTEN);
+      mesh.setColorAt(i, color);
+
+      rendered[i * 3] = position.x;
+      rendered[i * 3 + 1] = position.y;
+      rendered[i * 3 + 2] = position.z;
+      influence[i] = hit;
+    }
+
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+    // Re-anchor the lines to the displaced nodes so links stay attached while
+    // the cursor pushes the field around.
+    const positionAttribute = lines.geometry.getAttribute(
+      "position"
+    ) as THREE.BufferAttribute;
+    const influenceAttribute = lines.geometry.getAttribute(
+      "aInfluence"
+    ) as THREE.BufferAttribute;
+    const positions = positionAttribute.array as Float32Array;
+    const influences = influenceAttribute.array as Float32Array;
+
+    for (let v = 0; v < network.edgeCount * 2; v++) {
+      const node = network.edges[v];
+      positions[v * 3] = rendered[node * 3];
+      positions[v * 3 + 1] = rendered[node * 3 + 1];
+      positions[v * 3 + 2] = rendered[node * 3 + 2];
+      influences[v] = influence[node];
+    }
+
+    positionAttribute.needsUpdate = true;
+    influenceAttribute.needsUpdate = true;
+  });
+
+  return (
+    <group ref={groupRef}>
+      <lineSegments ref={linesRef} frustumCulled={false}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[edgeBuffers.positions, 3]}
+            usage={THREE.DynamicDrawUsage}
+          />
+          <bufferAttribute
+            attach="attributes-aProgress"
+            args={[edgeBuffers.progress, 1]}
+          />
+          <bufferAttribute attach="attributes-aSeed" args={[edgeBuffers.seed, 1]} />
+          <bufferAttribute
+            attach="attributes-aInfluence"
+            args={[edgeBuffers.influence, 1]}
+            usage={THREE.DynamicDrawUsage}
+          />
+          <bufferAttribute attach="attributes-aColor" args={[edgeBuffers.colors, 3]} />
+        </bufferGeometry>
+        <shaderMaterial
+          ref={materialRef}
+          uniforms={uniforms}
+          vertexShader={EDGE_VERTEX}
+          fragmentShader={EDGE_FRAGMENT}
+          transparent
+          depthWrite={false}
+        />
+      </lineSegments>
+
+      <instancedMesh
+        ref={meshRef}
+        args={[undefined, undefined, network.count]}
+        frustumCulled={false}
+      >
+        <icosahedronGeometry args={[1, 1]} />
+        <meshBasicMaterial toneMapped={false} transparent depthWrite={false} />
+      </instancedMesh>
+    </group>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+export function ParticleNetwork({ reducedMotion }: { reducedMotion: boolean }) {
+  return (
+    <Canvas
+      className="absolute! inset-0"
+      camera={{ position: [0, 0, CAMERA_Z], fov: 55 }}
+      dpr={[1, 1.5]}
+      // "demand" renders a single static frame for reduced-motion users.
+      frameloop={reducedMotion ? "demand" : "always"}
+      gl={{ antialias: false, alpha: true, toneMapping: THREE.NoToneMapping }}
+    >
+      <NetworkField reducedMotion={reducedMotion} />
+      <EffectComposer multisampling={0} frameBufferType={THREE.HalfFloatType}>
+        <Bloom
+          mipmapBlur
+          intensity={reducedMotion ? 0.6 : 1.15}
+          luminanceThreshold={0.42}
+          luminanceSmoothing={0.22}
+          radius={0.72}
+        />
+      </EffectComposer>
+    </Canvas>
+  );
+}

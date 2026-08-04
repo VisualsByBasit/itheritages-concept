@@ -1,3 +1,4 @@
+import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -40,17 +41,43 @@ const buttonVariants = cva(
   }
 )
 
+/**
+ * Base UI's `useButton` force-merges `role="button"` onto whatever it renders
+ * when `nativeButton` is false, and it wins the prop merge — so a CTA rendered
+ * as an anchor announced as a button, hiding from assistive tech that
+ * activating it navigates.
+ *
+ * Navigation therefore skips the primitive entirely and renders the supplied
+ * element with the button styling applied. It keeps native link semantics
+ * (role, middle-click, "open in new tab", the status bar URL) and requires no
+ * change at any call site: `<Button nativeButton={false} render={<Link …/>} />`
+ * still works exactly as before.
+ */
 function Button({
   className,
   variant = "default",
   size = "default",
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  const classes = cn(buttonVariants({ variant, size, className }))
+  const { render, nativeButton, ...rest } = props
+
+  if (nativeButton === false && React.isValidElement(render)) {
+    const element = render as React.ReactElement<{ className?: string }>
+    return React.cloneElement(element, {
+      ...rest,
+      "data-slot": "button",
+      className: cn(classes, element.props.className),
+    } as Partial<typeof element.props>)
+  }
+
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
+      className={classes}
+      render={render}
+      nativeButton={nativeButton}
+      {...rest}
     />
   )
 }

@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Mail, Phone } from "lucide-react";
 
+import { OFFICES } from "@/data/company";
+
 function FacebookIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
@@ -38,24 +40,6 @@ const COMPANY_LINKS = [
   { label: "Case Studies", href: "/case-studies" },
   { label: "Contact", href: "/contact" },
   { label: "Privacy", href: "/privacy" },
-];
-
-const OFFICES = [
-  {
-    label: "Islamabad — HQ",
-    address: "1st Floor, H-1, Street-34, G-10/1, Islamabad, Pakistan",
-    phone: "+92-300-0607639",
-  },
-  {
-    label: "Lahore",
-    address: "No. 204, 30-M Civic Center, Model Town, Lahore, Pakistan",
-    phone: "+92-300-0607639",
-  },
-  {
-    label: "United Kingdom",
-    address: "175 Humber Road, Coventry CV3 1NZ, United Kingdom",
-    phone: "+44 785 2421806",
-  },
 ];
 
 export function Footer() {
