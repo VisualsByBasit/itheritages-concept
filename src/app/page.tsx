@@ -1,5 +1,6 @@
 import { Throughline } from "@/components/motion/throughline";
 import { Hero } from "@/components/sections/hero";
+import { HeroCredentials } from "@/components/sections/hero-credentials";
 import { TrustBar } from "@/components/sections/trust-bar";
 import { Services } from "@/components/sections/services";
 import { Industries } from "@/components/sections/industries";
@@ -17,6 +18,9 @@ export default function Home() {
       {/* Draws itself down the page as you scroll, tying the sections together. */}
       <Throughline />
       <Hero />
+      {/* The scroll out of the hero: the credentials behind its claim, stacking
+          as you leave it. */}
+      <HeroCredentials />
       <TrustBar />
       <Services />
       <Industries />

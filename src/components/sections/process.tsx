@@ -32,7 +32,10 @@ export function Process() {
             </p>
           </div>
 
-          <div className="reveal -mx-6 lg:mx-0 lg:translate-x-8">
+          {/* No `reveal` here — the isometric runs its own scroll-triggered
+              assembly, and fading the whole block in on top of it reads as two
+              competing entrances. */}
+          <div className="-mx-6 lg:mx-0 lg:translate-x-8">
             <ProcessIsometric className="h-auto w-full" />
           </div>
         </div>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { AnimatedHeading } from "@/components/motion/animated-heading";
-import { SectionBackdrop } from "@/components/ui/section-backdrop";
+import { BackgroundBeams } from "@/components/ui/background-beams";
 import { EMAILS, OFFICES } from "@/data/company";
 
 export const metadata: Metadata = {
@@ -277,8 +277,8 @@ const SECTIONS: { heading: string; body: React.ReactNode }[] = [
 export default function PrivacyPage() {
   return (
     <article className="w-full">
-      <header className="relative border-b border-border/70 bg-background">
-        <SectionBackdrop variant="left" />
+      <header className="relative overflow-hidden border-b border-border/70 bg-background">
+        <BackgroundBeams />
 
         <div className="relative mx-auto w-full max-w-4xl px-6 py-[clamp(3rem,7vh,5.5rem)] sm:px-10">
           <p className="section-eyebrow text-sm font-medium tracking-[0.2em] text-primary uppercase">

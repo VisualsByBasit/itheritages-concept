@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Clock, Mail, Phone } from "lucide-react";
 
 import { AnimatedHeading } from "@/components/motion/animated-heading";
+import { ContactRoutes } from "@/components/sections/contact-routes";
 import { ContactTerminal } from "@/components/sections/contact-terminal";
+import { BackgroundBeams } from "@/components/ui/background-beams";
 import { ImagePlaceholder } from "@/components/ui/image-placeholder";
 import { SectionBackdrop } from "@/components/ui/section-backdrop";
 import { CERTIFICATIONS, EMAILS, HOURS, OFFICES } from "@/data/company";
@@ -16,8 +18,10 @@ export const metadata: Metadata = {
 export default function ContactPage() {
   return (
     <article className="w-full">
-      <header className="relative border-b border-border/70 bg-background">
-        <SectionBackdrop variant="left" />
+      {/* Beams replace this hero's morphing blobs rather than layering over
+          them — one signature background effect per section. */}
+      <header className="relative overflow-hidden border-b border-border/70 bg-background">
+        <BackgroundBeams />
 
         <div className="relative mx-auto w-full max-w-6xl px-6 py-[clamp(3rem,7vh,5.5rem)] sm:px-10">
           <p className="section-eyebrow text-sm font-medium tracking-[0.2em] text-primary uppercase">
@@ -56,12 +60,26 @@ export default function ContactPage() {
         <SectionBackdrop variant="right" />
         <div className="relative mx-auto w-full max-w-6xl px-6 py-[clamp(3rem,6vh,4.5rem)] sm:px-10">
           <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.5fr_1fr] lg:gap-16">
-            <div>
+            {/* Anchor target for the scoping-call card in ContactRoutes. */}
+            <div id="new-enquiry" className="scroll-mt-28">
               <h2 className="section-eyebrow text-sm font-medium tracking-[0.2em] text-primary uppercase">
                 New enquiry
               </h2>
               <div className="mt-8">
                 <ContactTerminal />
+              </div>
+
+              {/* The terminal is shorter than the three cards beside it, which
+                  left a hole in the bottom-left of this section. The map
+                  placeholder was sitting alone under the Offices section below;
+                  moved here it fills the column and sits next to the phone
+                  numbers it will eventually plot. Still a placeholder — the real
+                  embed is outstanding. */}
+              <div className="reveal mt-6">
+                <ImagePlaceholder
+                  label="Map — three office locations"
+                  className="h-56"
+                />
               </div>
             </div>
 
@@ -69,42 +87,7 @@ export default function ContactPage() {
               <h2 className="section-eyebrow text-sm font-medium tracking-[0.2em] text-primary uppercase">
                 Direct
               </h2>
-              <ul className="reveal mt-8 space-y-3">
-                <li>
-                  <a
-                    href={`mailto:${EMAILS.general}`}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground"
-                  >
-                    <Mail className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                    {EMAILS.general}
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href={`mailto:${EMAILS.sales}`}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground"
-                  >
-                    <Mail className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                    {EMAILS.sales}
-                  </a>
-                </li>
-                {OFFICES.map((office) => (
-                  <li key={`tel-${office.label}`}>
-                    <a
-                      href={`tel:${office.phone.replace(/\s+/g, "")}`}
-                      className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground/85 transition-colors hover:border-primary/40 hover:text-foreground"
-                    >
-                      <Phone className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                      <span>
-                        {office.phone}
-                        <span className="ml-2 text-muted-foreground">
-                          {office.label}
-                        </span>
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
+              <ContactRoutes className="mt-8" />
             </div>
           </div>
         </div>
@@ -147,14 +130,6 @@ export default function ContactPage() {
               </li>
             ))}
           </ul>
-
-          {/* Map embed is wired in separately — marked, not faked. */}
-          <div className="reveal mt-8">
-            <ImagePlaceholder
-              label="Map — three office locations"
-              className="h-64"
-            />
-          </div>
         </div>
       </section>
     </article>

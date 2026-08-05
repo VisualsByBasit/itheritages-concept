@@ -130,14 +130,18 @@
 .hero-meteor__streak {
   position: absolute;
   width: var(--meteor-length);
-  height: 2px;
+  height: 2.5px;
   border-radius: 999px;
   transform-origin: 0 50%;
   opacity: 0;
+  /* Heavier than the original 45%-at-55%: the tail now picks up colour earlier
+     and carries more of it, so a streak reads as a lit trail rather than a
+     hairline that only resolves at its head. */
   background: linear-gradient(
     to right,
     transparent 0%,
-    color-mix(in srgb, var(--meteor-color) 45%, transparent) 55%,
+    color-mix(in srgb, var(--meteor-color) 30%, transparent) 30%,
+    color-mix(in srgb, var(--meteor-color) 75%, transparent) 62%,
     var(--meteor-color) 100%
   );
   animation: hero-meteor-streak var(--meteor-duration) linear
@@ -763,6 +767,574 @@
   50%,
   100% {
     opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Boot sequence
+   Covers the page from the first paint on a cold load, then dissolves. The
+   inline script in the layout sets data-booted before paint on repeat visits,
+   which hides this with no flash and no hydration mismatch — the DOM stays
+   identical, only its visibility changes.
+   --------------------------------------------------------------------------- */
+
+.boot-overlay {
+  /* Mirrored by the JS timers in boot-sequence.tsx. Kept here rather than in an
+     inline style so the markup is identical on server and client. */
+  --boot-hold: 1450ms;
+  --boot-fade: 340ms;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  background: var(--background);
+  /* A faint brand wash so the field is not a flat white rectangle. */
+  background-image: radial-gradient(
+    ellipse 60% 55% at 50% 45%,
+    color-mix(in srgb, var(--primary) 7%, transparent) 0%,
+    transparent 70%
+  );
+  opacity: 1;
+  transition: opacity var(--boot-fade, 340ms) ease-out;
+}
+
+.boot-overlay[data-leaving] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+:root[data-booted="1"] .boot-overlay {
+  display: none;
+}
+
+.boot-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(260px, 60vw);
+  height: min(260px, 60vw);
+}
+
+.boot-mark {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.boot-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(220px, 52vw);
+  height: auto;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: boot-logo-in 420ms ease-out forwards;
+}
+
+@keyframes boot-logo-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Dots drawn in toward the mark — the meteor field's impact burst, reversed. */
+.boot-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.boot-particle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  opacity: 0;
+  animation: boot-converge 760ms cubic-bezier(0.22, 1, 0.36, 1) var(--pd)
+    forwards;
+}
+
+@keyframes boot-converge {
+  0% {
+    opacity: 0;
+    transform: translate(calc(var(--px) - 50%), calc(var(--py) - 50%)) scale(0.4);
+  }
+  30% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+}
+
+/* The progress cue: a hairline filling left to right, blue with a lit head. */
+.boot-progress {
+  position: relative;
+  width: min(200px, 46vw);
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.boot-progress__fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: scaleX(0);
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary) 0%,
+    var(--primary) 72%,
+    var(--success) 100%
+  );
+  box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 55%, transparent);
+  animation: boot-progress var(--boot-hold, 1450ms) cubic-bezier(0.4, 0, 0.2, 1)
+    forwards;
+}
+
+@keyframes boot-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Must stay in step with REDUCED_HOLD / REDUCED_FADE. */
+  .boot-overlay {
+    --boot-hold: 420ms;
+    --boot-fade: 260ms;
+  }
+  /* No convergence, no travelling fill — the logo simply appears and the bar
+     holds complete, so the overlay still reads as a load state. */
+  .boot-particle {
+    animation: none;
+    opacity: 0;
+  }
+  .boot-logo {
+    animation-duration: 200ms;
+  }
+  .boot-progress__fill {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Process isometric
+   The idle loop that runs after GSAP has assembled the four stages. Each rule
+   animates its own nested group, never one GSAP also writes to, so the entrance
+   and the idle can't fight over a transform.
+   --------------------------------------------------------------------------- */
+
+.iso-float {
+  animation: iso-float 6.5s ease-in-out infinite;
+}
+
+@keyframes iso-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* The architecture stack breathes layer by layer, so it reads as assembled
+   rather than drawn as one block. */
+.iso-layer {
+  transform: translateY(var(--layer-y));
+  animation: iso-layer 6s ease-in-out infinite;
+}
+
+@keyframes iso-layer {
+  0%,
+  100% {
+    transform: translateY(var(--layer-y));
+  }
+  50% {
+    transform: translateY(calc(var(--layer-y) - 3px));
+  }
+}
+
+/* Scoping notes writing themselves in, then the page turning over. */
+.iso-write {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: iso-write 7s ease-in-out infinite;
+}
+
+@keyframes iso-write {
+  0% {
+    stroke-dashoffset: 20;
+  }
+  12%,
+  82% {
+    stroke-dashoffset: 0;
+  }
+  94%,
+  100% {
+    stroke-dashoffset: 20;
+  }
+}
+
+/* The proof-of-concept passing its test, on a loop. */
+.iso-check {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: iso-check 7s ease-in-out 1.6s infinite;
+}
+
+@keyframes iso-check {
+  0% {
+    stroke-dashoffset: 26;
+  }
+  10%,
+  80% {
+    stroke-dashoffset: 0;
+  }
+  92%,
+  100% {
+    stroke-dashoffset: 26;
+  }
+}
+
+.iso-led {
+  animation: iso-led 2.4s ease-in-out infinite;
+}
+
+@keyframes iso-led {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Packets travelling the route, so the stages read as connected. */
+.iso-route {
+  animation: iso-route 2.8s linear infinite;
+}
+
+@keyframes iso-route {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Everything holds its assembled state — the diagram still reads. */
+  .iso-float,
+  .iso-layer,
+  .iso-led,
+  .iso-route {
+    animation: none;
+  }
+  .iso-write,
+  .iso-check {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   AI advisor
+   The collapsed orb sits on every page, so the whole idle treatment — glow,
+   orbit, sparks — is CSS and compositor-only, costing no main-thread time.
+   --------------------------------------------------------------------------- */
+
+/* The panel's corner scale, kept here rather than spread across the components
+   so the panel and its bubbles can never drift out of proportion. */
+:root {
+  --advisor-radius: 1.25rem;
+  --advisor-bubble-radius: 0.875rem;
+}
+
+/* -- the sphere ------------------------------------------------------------ */
+
+/* Shared by the orb, the panel header and every transcript avatar. Depth is
+   three stacked cues, not one gradient: an off-centre highlight, an inset
+   falloff on the shaded edge, and a rim light where the surface turns away. */
+.advisor-sphere {
+  background: radial-gradient(
+    circle at 32% 26%,
+    #cdeeff 0%,
+    #6ecbff 14%,
+    #23a9fc 34%,
+    var(--primary) 52%,
+    #0568b3 78%,
+    #023e70 100%
+  );
+  box-shadow:
+    /* shaded edge, opposite the highlight */
+    inset -2px -3px 7px rgba(1, 32, 58, 0.5),
+    /* rim light where the sphere turns away from the viewer */
+    inset 0 -1px 1px rgba(168, 226, 255, 0.55),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+/* The discrete specular hit — a gradient alone reads as a lit disc, this is
+   what makes it read as a sphere. */
+.advisor-sphere__specular {
+  position: absolute;
+  top: 11%;
+  left: 17%;
+  width: 40%;
+  height: 28%;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0.35) 55%,
+    transparent 100%
+  );
+  filter: blur(1px);
+}
+
+/* Soft brand-blue bloom spilling past the sphere's edge. */
+.advisor-sphere__bloom {
+  position: absolute;
+  inset: -22%;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--primary) 60%, transparent) 0%,
+    color-mix(in srgb, var(--primary) 22%, transparent) 45%,
+    transparent 72%
+  );
+  filter: blur(6px);
+}
+
+/* -- the orb --------------------------------------------------------------- */
+
+/* Static outer glow: genuinely blurred light extending well beyond the edge,
+   under the breathing halo that animates on top of it. */
+.advisor-orb__glow {
+  position: absolute;
+  inset: -20px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--primary) 55%, transparent) 0%,
+    color-mix(in srgb, var(--primary) 20%, transparent) 42%,
+    transparent 68%
+  );
+  filter: blur(11px);
+}
+
+.advisor-orb__halo {
+  position: absolute;
+  inset: -16px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--primary) 26%, transparent) 0%,
+    color-mix(in srgb, var(--primary) 8%, transparent) 48%,
+    transparent 70%
+  );
+  filter: blur(4px);
+  animation: advisor-breathe 5s ease-in-out infinite;
+}
+
+/* The orbit reads as a continuous ring at rest… */
+.advisor-orb__orbit {
+  position: absolute;
+  inset: -7px;
+  border-radius: 999px;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+/* …with a bright arc travelling it. Masked to a 1.5px band so the conic
+   gradient reads as a stroke rather than a filled wedge. */
+.advisor-orb__arc {
+  position: absolute;
+  inset: -7px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0turn,
+    transparent 0deg 210deg,
+    color-mix(in srgb, var(--primary) 30%, transparent) 285deg,
+    color-mix(in srgb, var(--primary) 95%, transparent) 345deg,
+    #9ad9ff 358deg,
+    transparent 360deg
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 1.5px),
+    #000 calc(100% - 1.5px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 1.5px),
+    #000 calc(100% - 1.5px)
+  );
+  animation: advisor-spin 7s linear infinite;
+}
+
+/* The head of the arc, riding the same orbit in lockstep. */
+.advisor-orb__comet {
+  position: absolute;
+  inset: -7px;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: advisor-spin 7s linear infinite;
+}
+
+.advisor-orb__comet-head {
+  position: absolute;
+  top: -1.5px;
+  left: 50%;
+  height: 4px;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow:
+    0 0 6px 1px color-mix(in srgb, var(--primary) 85%, transparent),
+    0 0 12px 3px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+/* Sparks drifting off the orb — the meteor field's impact particles, sparser. */
+.advisor-spark {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  background: var(--spark-color);
+  box-shadow: 0 0 4px 0 var(--spark-color);
+  opacity: 0;
+  animation: advisor-spark var(--spark-duration) ease-in-out var(--spark-delay)
+    infinite;
+}
+
+@keyframes advisor-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes advisor-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes advisor-spark {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.4);
+  }
+  35% {
+    opacity: var(--spark-opacity);
+    transform: translate3d(calc(var(--dx) * 0.45), calc(var(--dy) * 0.45), 0)
+      scale(1);
+  }
+  70% {
+    opacity: 0;
+    transform: translate3d(var(--dx), var(--dy), 0) scale(0.5);
+  }
+}
+
+/* -- the panel ------------------------------------------------------------- */
+
+/* Elevation is the Services/Industries card recipe — a brand-tinted, short-throw
+   shadow — scaled up to overlay height and layered over an ambient one, plus the
+   inset highlight that gives the glass a lit top edge. */
+.advisor-panel {
+  border-radius: var(--advisor-radius);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 24px 56px -28px color-mix(in srgb, var(--primary) 60%, transparent),
+    0 36px 72px -36px rgba(10, 10, 11, 0.38);
+}
+
+.advisor-bubble {
+  border-radius: var(--advisor-bubble-radius);
+}
+
+/* One corner tucks in on the side the message comes from. */
+.advisor-bubble--advisor {
+  border-top-left-radius: 4px;
+}
+
+.advisor-bubble--user {
+  border-bottom-right-radius: 4px;
+}
+
+/* Frosted glass per PROJECT_BRIEF.md §3: blur plus a hairline top highlight,
+   with a noise grain so it reads as a surface rather than flat translucency. */
+.advisor-panel__noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Placeholder for the streaming cursor until the model is wired up. */
+.advisor-typing__dot {
+  animation: advisor-typing 1.3s ease-in-out infinite;
+}
+
+@keyframes advisor-typing {
+  0%,
+  70%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 0.9;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The orb keeps its glow, orbit and lit head — they just hold still. */
+  .advisor-orb__halo,
+  .advisor-orb__arc,
+  .advisor-orb__comet,
+  .advisor-typing__dot {
+    animation: none;
+  }
+  .advisor-typing__dot {
+    opacity: 0.55;
+  }
+  /* Sparks resolve to their 0% frame (invisible), so nothing twitches. */
+  .advisor-spark {
+    animation: none;
   }
 }
 

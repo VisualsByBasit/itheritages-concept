@@ -37,6 +37,21 @@ const METEORS = [
   { top: "3%", left: "80%", length: 155, scale: 0.86, duration: 17.1, delay: -13.4 },
   { top: "-9%", left: "64%", length: 180, scale: 0.71, duration: 10.2, delay: -6.9 },
   { top: "14%", left: "30%", length: 110, scale: 0.64, duration: 18.9, delay: -4.2 },
+  // Third wave — same rules as above: durations stay mutually non-repeating
+  // across all three waves, and the delays fill the gaps the first two left so
+  // the field never thins out or re-syncs.
+  { top: "-3%", left: "26%", length: 135, scale: 0.79, duration: 9.8, delay: -1.8 },
+  { top: "9%", left: "48%", length: 165, scale: 0.87, duration: 10.7, delay: -5.3 },
+  { top: "-11%", left: "70%", length: 120, scale: 0.61, duration: 11.2, delay: -7.6 },
+  { top: "24%", left: "38%", length: 150, scale: 0.73, duration: 12.6, delay: -10.1 },
+  { top: "1%", left: "94%", length: 105, scale: 0.57, duration: 13.3, delay: -12.9 },
+  { top: "-7%", left: "56%", length: 178, scale: 0.93, duration: 14.8, delay: -15.4 },
+  { top: "17%", left: "66%", length: 128, scale: 0.69, duration: 15.3, delay: -3.4 },
+  { top: "5%", left: "32%", length: 142, scale: 0.82, duration: 16.4, delay: -6.2 },
+  { top: "-13%", left: "86%", length: 158, scale: 0.75, duration: 17.8, delay: -8.9 },
+  { top: "21%", left: "52%", length: 98, scale: 0.54, duration: 18.2, delay: -11.6 },
+  { top: "11%", left: "76%", length: 172, scale: 0.89, duration: 19.1, delay: -14.7 },
+  { top: "28%", left: "42%", length: 112, scale: 0.63, duration: 9.3, delay: -17.2 },
 ];
 
 /** Scatter directions for the impact burst, in px. */

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Check } from "lucide-react";
 
+import { BackgroundBeams } from "@/components/ui/background-beams";
 import { Button } from "@/components/ui/button";
 import { ServiceVisual } from "@/components/sections/service-visuals";
 import {
@@ -53,8 +54,9 @@ export default async function ServicePage({ params }: PageProps) {
     >
       {/* 1 — Service hero. The motif is the same one used on the overview card,
              so the module reads continuously from homepage to detail page. */}
-      <header className="border-b border-border/70 bg-background">
-        <div className="mx-auto w-full max-w-6xl px-6 py-[clamp(3rem,7vh,5.5rem)] sm:px-10">
+      <header className="relative overflow-hidden border-b border-border/70 bg-background">
+        <BackgroundBeams />
+        <div className="relative mx-auto w-full max-w-6xl px-6 py-[clamp(3rem,7vh,5.5rem)] sm:px-10">
           <nav aria-label="Breadcrumb" className="mb-8 text-sm text-muted-foreground">
             <Link href="/services" className="transition-colors hover:text-foreground">
               Services

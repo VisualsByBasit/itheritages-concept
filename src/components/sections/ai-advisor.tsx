@@ -3,9 +3,8 @@ import { MessageSquare } from "lucide-react";
 
 import { AnimatedHeading } from "@/components/motion/animated-heading";
 import { AdvisorMockup } from "@/components/sections/advisor-mockup";
+import { BackgroundBeams } from "@/components/ui/background-beams";
 import { Button } from "@/components/ui/button";
-import { GradientStripes } from "@/components/ui/ornaments";
-import { SectionBackdrop } from "@/components/ui/section-backdrop";
 
 /**
  * Callout for the ITH Advisor described in PROJECT_BRIEF.md §5. The assistant
@@ -27,17 +26,17 @@ export function AiAdvisor() {
       aria-labelledby="advisor-heading"
       className="relative w-full border-t border-border/70 bg-background py-[clamp(4rem,9vh,7rem)]"
     >
-      <SectionBackdrop variant="split" />
-      {/* Stripes running behind the advisor card — blue-led, violet as the
-          rare partner, since this section is the AI moment. */}
-      <GradientStripes
-        pair="blue-violet"
-        className="inset-x-0 top-1/4 h-52"
-        opacity={0.45}
-      />
+      {/* Beams are this section's one background effect. The morphing blobs and
+          gradient stripes that used to sit here were removed rather than
+          layered underneath — three ambient effects in one viewport read as
+          noise, and this is the section that should feel like the signature
+          technology moment. */}
+      <BackgroundBeams />
 
       <div className="relative mx-auto w-full max-w-6xl px-6 sm:px-10">
-        <div className="reveal grid grid-cols-1 items-center gap-10 rounded-3xl border border-border bg-card p-8 sm:p-10 lg:grid-cols-[1.15fr_1fr] lg:gap-16">
+        {/* Glass rather than solid white: an opaque card here sits directly on
+            top of the beams and hides the whole centre of the field. */}
+        <div className="reveal grid grid-cols-1 items-center gap-10 rounded-3xl border border-border/70 bg-card/70 p-8 backdrop-blur-xl sm:p-10 lg:grid-cols-[1.15fr_1fr] lg:gap-16">
           <div>
             <p className="inline-flex items-center gap-2 text-sm font-medium tracking-[0.2em] text-primary uppercase">
               <MessageSquare className="h-4 w-4" aria-hidden="true" />

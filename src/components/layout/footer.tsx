@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Mail, Phone } from "lucide-react";
 
+import { MapGlow } from "@/components/ui/map-glow";
 import { OFFICES } from "@/data/company";
 
 function FacebookIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -44,8 +45,14 @@ const COMPANY_LINKS = [
 
 export function Footer() {
   return (
-    <footer id="site-footer" className="border-t border-border bg-secondary/40">
-      <div className="mx-auto w-full max-w-6xl px-6 py-16 sm:px-10">
+    <footer
+      id="site-footer"
+      className="relative overflow-hidden border-t border-border bg-secondary/40"
+    >
+      {/* The Islamabad street grid, as coordinates only — see MapGlow. */}
+      <MapGlow />
+
+      <div className="relative mx-auto w-full max-w-6xl px-6 py-16 sm:px-10">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.2fr_1fr_1fr_1.4fr]">
           <div>
             <Link href="/" aria-label="IT Heritages home">

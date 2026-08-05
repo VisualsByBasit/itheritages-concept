@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { AnimatedHeading } from "@/components/motion/animated-heading";
 import { ServiceGrid } from "@/components/sections/service-grid";
+import { BackgroundBeams } from "@/components/ui/background-beams";
 import { Button } from "@/components/ui/button";
 import { SectionBackdrop } from "@/components/ui/section-backdrop";
 import { CERTIFICATIONS } from "@/data/company";
@@ -17,8 +18,10 @@ export const metadata: Metadata = {
 export default function ServicesHubPage() {
   return (
     <article className="w-full">
-      <header className="relative border-b border-border/70 bg-background">
-        <SectionBackdrop variant="left" />
+      {/* The services hub is the core of the site per the brief, so it gets the
+          signature effect in place of this hero's blobs. */}
+      <header className="relative overflow-hidden border-b border-border/70 bg-background">
+        <BackgroundBeams />
 
         <div className="relative mx-auto w-full max-w-6xl px-6 py-[clamp(3rem,7vh,5.5rem)] sm:px-10">
           <p className="section-eyebrow text-sm font-medium tracking-[0.2em] text-primary uppercase">

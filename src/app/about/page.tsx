@@ -3,9 +3,11 @@ import Link from "next/link";
 import { Award, Phone, ShieldCheck } from "lucide-react";
 
 import { AnimatedHeading } from "@/components/motion/animated-heading";
+import { PracticeParallax } from "@/components/sections/practice-parallax";
 import { HeritageObjectLazy } from "@/components/three/heritage-object-lazy";
 import { Button } from "@/components/ui/button";
-import { DotGrid, FloatingDots, SketchLines } from "@/components/ui/ornaments";
+import { BackgroundBeams } from "@/components/ui/background-beams";
+import { SketchLines } from "@/components/ui/ornaments";
 import { PhotoFrame } from "@/components/ui/photo-frame";
 import { SectionBackdrop } from "@/components/ui/section-backdrop";
 import {
@@ -25,11 +27,12 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <article className="w-full">
-      <header className="relative border-b border-border/70 bg-background">
-        <SectionBackdrop variant="left" />
-        {/* Dot field under the headline, dots drifting around the 3D mark. */}
-        <DotGrid className="top-0 left-0 h-72 w-[32rem]" origin="0% 0%" gap={20} />
-        <FloatingDots />
+      {/* This hero previously ran three ambient effects at once — morphing
+          blobs, a dot field and drifting dots. Beams replace all three: one
+          signature effect per section, and three competing ones read as noise
+          behind the 3D mark rather than as depth. */}
+      <header className="relative overflow-hidden border-b border-border/70 bg-background">
+        <BackgroundBeams />
 
         {/* Asymmetric split: copy on the left rail, the 3D mark holding the
             right and bleeding past the container edge. */}
@@ -145,6 +148,10 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+
+      {/* Follows "Certified" deliberately — this is what that certified team
+          actually covers, shown through the service motifs. */}
+      <PracticeParallax />
 
       <section className="relative border-b border-border/70">
         <SectionBackdrop variant="split" />
